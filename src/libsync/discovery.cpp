@@ -368,6 +368,29 @@ void ProcessDirectoryJob::processFileAnalyzeRemoteInfo(
     item->_directDownloadUrl = serverEntry.directDownloadUrl;
     item->_directDownloadCookies = serverEntry.directDownloadCookies;
 
+    // Check for missing server data
+    if (serverEntry.size == -1
+        || serverEntry.remotePerm.isNull()
+        || serverEntry.etag.isEmpty()
+        || serverEntry.fileId.isEmpty()) {
+        item->_instruction = CSYNC_INSTRUCTION_ERROR;
+        item->_status = SyncFileItem::NormalError;
+        _childIgnored = true;
+        QStringList missingData;
+        if (serverEntry.size == -1)
+            missingData.append(tr("size"));
+        if (serverEntry.remotePerm.isNull())
+            missingData.append(tr("permissions"));
+        if (serverEntry.etag.isEmpty())
+            missingData.append(tr("etag"));
+        if (serverEntry.fileId.isEmpty())
+            missingData.append(tr("file id"));
+        ASSERT(!missingData.isEmpty());
+        item->_errorString = tr("server reported no %1").arg(missingData.join(QLatin1String(", ")));
+        emit _discoveryData->itemDiscovered(item);
+        return;
+    }
+
     // The file is known in the db already
     if (dbEntry.isValid()) {
         if (serverEntry.isDirectory != dbEntry.isDirectory()) {
